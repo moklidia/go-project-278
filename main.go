@@ -2,6 +2,7 @@ package main
 
 import (
   "net/http"
+	"log"
 
   "github.com/gin-gonic/gin"
 	"github.com/gin-contrib/logger"
@@ -18,5 +19,7 @@ func main() {
     })
   })
 
-  router.Run(":8080")
+  if err := router.Run(":8080"); err != nil {
+		log.Fatal(err)
+	}
 }
