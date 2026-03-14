@@ -24,11 +24,11 @@ import (
 
 )
 
-type Link struct {
-	ID int
-	OriginalURL string
-	ShortName string
-	ShortURL string
+type LinkResponse struct {
+	ID          int64  `json:"id"`
+	OriginalURL string `json:"original_url"`
+	ShortName   string `json:"short_name"`
+	ShortURL    string `json:"short_url"`
 }
 
 func main() {
@@ -96,7 +96,13 @@ func getLinksHandler(queries *db.Queries) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"links": links})
+
+		responseLinks := make([]LinkResponse, 0, len(links))
+		for _, link := range links {
+			responseLinks = append(responseLinks, toLinkResponse(link))
+		}
+
+		c.JSON(http.StatusOK, gin.H{"links": responseLinks})
 	}
 }
 
@@ -244,5 +250,14 @@ func postLinkHandler(queries *db.Queries) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusCreated, gin.H{"link": created})
+	}
+}
+
+func toLinkResponse(l db.Link) LinkResponse {
+	return LinkResponse{
+		ID:          l.ID,
+		OriginalURL: l.OriginalUrl,
+		ShortName:   l.ShortName,
+		ShortURL:    l.ShortUrl,
 	}
 }
