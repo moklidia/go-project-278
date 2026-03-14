@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"fmt"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -59,11 +60,45 @@ func TestGetLinks(t *testing.T) {
 	assert.Equal(t, fixtureLinks[2].OriginalURL, links[2].OriginalURL)
 }
 
+func TestGetLink(t *testing.T) {
+	_, queries := setupTx(t)
+	fixtureLinks, err := LoadLinkFixtures("testdata/links.yml")
+	require.NoError(t, err)
+	err = SeedLinks(context.Background(), queries, fixtureLinks)
+	require.NoError(t, err)
+	router := setupRouter(queries)
+
+	links, err := queries.ListLinks(context.Background())
+	require.NoError(t, err)
+	link := links[0]
+
+	req,err := http.NewRequest("GET", fmt.Sprintf("/api/links/%d", link.ID), nil)
+	require.NoError(t, err)
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response struct {
+		Link LinkResponse `json:"link"`
+	}
+	err = json.Unmarshal(w.Body.Bytes(), &response)
+
+	require.NoError(t, err)
+
+	assert.Equal(t, link.ID, response.Link.ID)
+	assert.Equal(t, link.OriginalUrl, response.Link.OriginalURL)
+
+}
+
 func setupRouter(queries *db.Queries) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
 	router.GET("/api/links", getLinksHandler(queries))
+	router.GET("/api/links/:id", getLinkHandler(queries))
+
 	return router
 }
 

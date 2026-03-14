@@ -127,7 +127,7 @@ func getLinkHandler(queries *db.Queries) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"link": link})
+		c.JSON(http.StatusOK, gin.H{"link": toLinkResponse(link)})
 	}
 }
 
