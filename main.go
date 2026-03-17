@@ -167,12 +167,12 @@ func updateLinkHandler(queries *db.Queries) gin.HandlerFunc {
 
 		originalURL := input.OriginalURL
 		shortName := input.ShortName
-		shortURL := fmt.Sprintf("%s/%s", os.Getenv("APP_URL"), shortName)
 
 		if shortName == "" {
 			shortName = current.ShortName
-			shortURL = current.ShortUrl
 		}
+
+		shortURL := fmt.Sprintf("%s/%s", getAppUrlFromEnv(), shortName)
 
 		if originalURL == "" {
 			originalURL = current.OriginalUrl
@@ -254,7 +254,7 @@ func postLinkHandler(queries *db.Queries) gin.HandlerFunc {
 			shortName = randomString
 		}
 
-		shortURL := fmt.Sprintf("%s/%s", os.Getenv("APP_URL"), shortName)
+		shortURL := fmt.Sprintf("%s/%s", getAppUrlFromEnv(), shortName)
 		created, err := queries.CreateLink(c.Request.Context(), db.CreateLinkParams{
 			OriginalUrl: originalURL,
 			ShortName:   shortName,
@@ -285,4 +285,13 @@ func toLinkResponse(l db.Link) LinkResponse {
 		ShortName:   l.ShortName,
 		ShortURL:    l.ShortUrl,
 	}
+}
+
+func getAppUrlFromEnv() string {
+	appURL := os.Getenv("APP_URL")
+	if appURL == "" {
+		appURL = "https://short.io"
+	}
+
+	return appURL
 }
