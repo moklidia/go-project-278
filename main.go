@@ -31,6 +31,11 @@ type LinkResponse struct {
 	ShortURL    string `json:"short_url"`
 }
 
+type linkInput struct {
+	OriginalURL string `json:"original_url"`
+	ShortName   string `json:"short_name"`
+}
+
 func main() {
 	if err := sentry.Init(sentry.ClientOptions{
 		Dsn: os.Getenv("SENTRY_DSN"),
@@ -144,6 +149,12 @@ func updateLinkHandler(queries *db.Queries) gin.HandlerFunc {
 			return
 		}
 
+		var input linkInput
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+			return
+		}
+
 		current, err := queries.GetLink(c.Request.Context(), id)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -154,8 +165,8 @@ func updateLinkHandler(queries *db.Queries) gin.HandlerFunc {
 			return
 		}
 
-		originalURL := c.Query("original_url")
-		shortName := c.Query("short_name")
+		originalURL := input.OriginalURL
+		shortName := input.ShortName
 		shortURL := fmt.Sprintf("%s/%s", os.Getenv("APP_URL"), shortName)
 
 		if shortName == "" {
@@ -213,13 +224,19 @@ func deleteLinkHandler(queries *db.Queries) gin.HandlerFunc {
 
 func postLinkHandler(queries *db.Queries) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		originalURL := c.Query("original_url")
+		var input linkInput
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+			return
+		}
+
+		originalURL := input.OriginalURL
 		if originalURL == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "original_url is required"})
 			return
 		}
 
-		shortName := c.Query("short_name")
+		shortName := input.ShortName
 		if shortName == "" {
 			randomString, err := GenerateShortName(5)
 			if err != nil {
