@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"bytes"
@@ -7,36 +7,22 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
-	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
 
 	db "github.com/moklidia/go-project-278/internal/db"
 )
 
-type LinkFixture struct {
-	ID          int64  `yaml:"id"`
-	OriginalURL string `yaml:"original_url"`
-	ShortName   string `yaml:"short_name"`
-	ShortURL    string `yaml:"short_url"`
-}
-
-type LinkFixtures struct {
-	Links []LinkFixture `yaml:"links"`
-}
-
 func TestGetLinks(t *testing.T) {
 	_, queries := setupTx(t)
-	fixtureLinks, err := LoadLinkFixtures("testdata/links.yml")
+	fixtureLinks, err := LoadLinkFixtures(t)
 	require.NoError(t, err)
 	err = SeedLinks(context.Background(), queries, fixtureLinks)
 	require.NoError(t, err)
-	router := setupRouter(queries)
+	router := SetupRouter(queries)
 
 	req,err := http.NewRequest("GET", "/api/links", nil)
 	require.NoError(t, err)
@@ -63,11 +49,11 @@ func TestGetLinks(t *testing.T) {
 
 func TestGetLink(t *testing.T) {
 	_, queries := setupTx(t)
-	fixtureLinks, err := LoadLinkFixtures("testdata/links.yml")
+	fixtureLinks, err := LoadLinkFixtures(t)
 	require.NoError(t, err)
 	err = SeedLinks(context.Background(), queries, fixtureLinks)
 	require.NoError(t, err)
-	router := setupRouter(queries)
+	router := SetupRouter(queries)
 
 	links, err := queries.ListLinks(context.Background())
 	require.NoError(t, err)
@@ -94,11 +80,11 @@ func TestGetLink(t *testing.T) {
 
 func TestUpdateLink(t *testing.T) {
 	_, queries := setupTx(t)
-	fixtureLinks, err := LoadLinkFixtures("testdata/links.yml")
+	fixtureLinks, err := LoadLinkFixtures(t)
 	require.NoError(t, err)
 	err = SeedLinks(context.Background(), queries, fixtureLinks)
 	require.NoError(t, err)
-	router := setupRouter(queries)
+	router := SetupRouter(queries)
 
 	links, err := queries.ListLinks(context.Background())
 	require.NoError(t, err)
@@ -135,11 +121,11 @@ func TestUpdateLink(t *testing.T) {
 
 func TestDeleteLink(t *testing.T) {
 	_, queries := setupTx(t)
-	fixtureLinks, err := LoadLinkFixtures("testdata/links.yml")
+	fixtureLinks, err := LoadLinkFixtures(t)
 	require.NoError(t, err)
 	err = SeedLinks(context.Background(), queries, fixtureLinks)
 	require.NoError(t, err)
-	router := setupRouter(queries)
+	router := SetupRouter(queries)
 
 	links, err := queries.ListLinks(context.Background())
 	require.NoError(t, err)
@@ -160,7 +146,7 @@ func TestDeleteLink(t *testing.T) {
 
 func TestUpdateLinkNotFound(t *testing.T) {
 	_, queries := setupTx(t)
-	router := setupRouter(queries)
+	router := SetupRouter(queries)
 
 	body, err := json.Marshal(map[string]string{
 		"original_url": "https://telegram.com",
@@ -180,7 +166,7 @@ func TestUpdateLinkNotFound(t *testing.T) {
 
 func TestDeleteLinkNotFound(t *testing.T) {
 	_, queries := setupTx(t)
-	router := setupRouter(queries)
+	router := SetupRouter(queries)
 
 	req, err := http.NewRequest("DELETE", "/api/links/999999", nil)
 	require.NoError(t, err)
@@ -189,19 +175,6 @@ func TestDeleteLinkNotFound(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
-}
-
-func setupRouter(queries *db.Queries) *gin.Engine {
-	gin.SetMode(gin.TestMode)
-
-	router := gin.New()
-	router.GET("/api/links", getLinksHandler(queries))
-	router.GET("/api/links/:id", getLinkHandler(queries))
-	router.POST("/api/links", postLinkHandler(queries))
-	router.PUT("/api/links/:id", updateLinkHandler(queries))
-	router.DELETE("/api/links/:id", deleteLinkHandler(queries))
-
-	return router
 }
 
 func setupTx(t *testing.T) (pgx.Tx, *db.Queries) {
@@ -220,33 +193,3 @@ func setupTx(t *testing.T) (pgx.Tx, *db.Queries) {
 	return tx, q
 }
 
-func LoadLinkFixtures(path string) ([]LinkFixture, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	var fixtures LinkFixtures
-
-	err = yaml.Unmarshal(data, &fixtures)
-	if err != nil {
-		return nil, err
-	}
-
-	return fixtures.Links, nil
-}
-
-func SeedLinks(ctx context.Context, q *db.Queries, links []LinkFixture) error {
-	for _, l := range links {
-		_, err := q.CreateLink(ctx, db.CreateLinkParams{
-			OriginalUrl: l.OriginalURL,
-			ShortName:   l.ShortName,
-			ShortUrl:    l.ShortURL,
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
