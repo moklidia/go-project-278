@@ -178,7 +178,7 @@ func updateLinkHandler(queries *db.Queries) gin.HandlerFunc {
 			originalURL = current.OriginalUrl
 	  }
 
-		_, err = queries.UpdateLink(c.Request.Context(), db.UpdateLinkParams{
+		rowsAffected, err := queries.UpdateLink(c.Request.Context(), db.UpdateLinkParams{
 			ID: id,
 			OriginalUrl: originalURL,
 			ShortName: shortName,
@@ -194,6 +194,10 @@ func updateLinkHandler(queries *db.Queries) gin.HandlerFunc {
 				return
 			}
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if rowsAffected == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "link not found"})
 			return
 		}
 
@@ -213,9 +217,13 @@ func deleteLinkHandler(queries *db.Queries) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 			return
 		}
-		err = queries.DeleteLink(c.Request.Context(), id)
+		rowsAffected, err := queries.DeleteLink(c.Request.Context(), id)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if rowsAffected == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "link not found"})
 			return
 		}
 		c.JSON(http.StatusNoContent, gin.H{})

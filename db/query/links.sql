@@ -12,5 +12,5 @@ SELECT * FROM links WHERE id = $1;
 INSERT INTO links (original_url, short_name, short_url) VALUES ($1, $2, $3) RETURNING *;
 -- name: UpdateLink :execrows
 UPDATE links SET original_url = $2, short_name = $3, short_url = $4 WHERE id = $1 RETURNING *;
--- name: DeleteLink :exec
+-- name: DeleteLink :execrows
 DELETE FROM links WHERE id = $1;

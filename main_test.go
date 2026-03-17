@@ -133,6 +133,64 @@ func TestUpdateLink(t *testing.T) {
 	assert.Equal(t, "https://short.io/telegram", updated.ShortUrl)
 }
 
+func TestDeleteLink(t *testing.T) {
+	_, queries := setupTx(t)
+	fixtureLinks, err := LoadLinkFixtures("testdata/links.yml")
+	require.NoError(t, err)
+	err = SeedLinks(context.Background(), queries, fixtureLinks)
+	require.NoError(t, err)
+	router := setupRouter(queries)
+
+	links, err := queries.ListLinks(context.Background())
+	require.NoError(t, err)
+	link := links[0]
+
+	req,err := http.NewRequest("DELETE", fmt.Sprintf("/api/links/%d", link.ID), nil)
+	require.NoError(t, err)
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNoContent, w.Code)
+
+	_, err = queries.GetLink(context.Background(), link.ID)
+	require.Error(t, err)
+	require.ErrorIs(t, err, pgx.ErrNoRows)
+}
+
+func TestUpdateLinkNotFound(t *testing.T) {
+	_, queries := setupTx(t)
+	router := setupRouter(queries)
+
+	body, err := json.Marshal(map[string]string{
+		"original_url": "https://telegram.com",
+		"short_name":   "telegram",
+	})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest("PUT", "/api/links/999999", bytes.NewReader(body))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestDeleteLinkNotFound(t *testing.T) {
+	_, queries := setupTx(t)
+	router := setupRouter(queries)
+
+	req, err := http.NewRequest("DELETE", "/api/links/999999", nil)
+	require.NoError(t, err)
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
 func setupRouter(queries *db.Queries) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 
@@ -141,6 +199,7 @@ func setupRouter(queries *db.Queries) *gin.Engine {
 	router.GET("/api/links/:id", getLinkHandler(queries))
 	router.POST("/api/links", postLinkHandler(queries))
 	router.PUT("/api/links/:id", updateLinkHandler(queries))
+	router.DELETE("/api/links/:id", deleteLinkHandler(queries))
 
 	return router
 }
