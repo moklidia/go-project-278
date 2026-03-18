@@ -114,7 +114,7 @@ func CreateLink(queries *db.Queries) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{"link": created})
+		c.JSON(http.StatusCreated, gin.H{"link": toLinkResponse(created)})
 	}
 }
 

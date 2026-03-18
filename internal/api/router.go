@@ -10,10 +10,15 @@ import (
 )
 
 func SetupRouter(queries *db.Queries) *gin.Engine {
-	router := gin.Default()
-	router.Use(logger.SetLogger())
-	router.Use(gin.Recovery())
-	router.Use(sentrygin.New(sentrygin.Options{Repanic: true, WaitForDelivery: true}))
+	router := gin.New()
+
+	if gin.Mode() != gin.TestMode {
+		router.Use(logger.SetLogger())
+		router.Use(sentrygin.New(sentrygin.Options{
+			Repanic: true,
+			WaitForDelivery: true,
+		}))
+	}
 
 	router.GET("/ping", func(c *gin.Context) {
     c.JSON(http.StatusOK, gin.H{

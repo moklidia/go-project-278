@@ -8,13 +8,20 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"os"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/gin-gonic/gin"
 
 	db "github.com/moklidia/go-project-278/internal/db"
 )
+
+func TestMain(m *testing.M) {
+	gin.SetMode(gin.TestMode)
+	os.Exit(m.Run())
+}
 
 func TestGetLinks(t *testing.T) {
 	_, queries := setupTx(t)
@@ -76,6 +83,35 @@ func TestGetLink(t *testing.T) {
 
 	assert.Equal(t, link.ID, response.Link.ID)
 	assert.Equal(t, link.OriginalUrl, response.Link.OriginalURL)
+}
+
+func TestCreateLink(t *testing.T) {
+	_, queries := setupTx(t)
+	router := SetupRouter(queries)
+	body, err := json.Marshal(map[string]string{
+		"original_url": "https://telegram.com",
+		"short_name":   "telegram",
+	})
+	require.NoError(t, err)
+
+	req,err := http.NewRequest("POST", "/api/links", bytes.NewReader(body))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	var response struct {
+		Link LinkResponse `json:"link"`
+	}
+	err = json.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	assert.Greater(t, response.Link.ID, int64(0))
+	assert.Equal(t, "https://telegram.com", response.Link.OriginalURL)
+	assert.Equal(t, "telegram", response.Link.ShortName)
 }
 
 func TestUpdateLink(t *testing.T) {
