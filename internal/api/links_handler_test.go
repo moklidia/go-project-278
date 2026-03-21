@@ -39,19 +39,16 @@ func TestGetLinks(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var response struct {
-		Links []LinkResponse `json:"links"`
-	}
+	var response []LinkResponse
+
 	err = json.Unmarshal(w.Body.Bytes(), &response)
 
 	require.NoError(t, err)
+	require.Len(t, response, 3)
 
-	links := response.Links
-	require.Len(t, links, 3)
-
-	assert.Equal(t, fixtureLinks[0].OriginalURL, links[0].OriginalURL)
-	assert.Equal(t, fixtureLinks[1].OriginalURL, links[1].OriginalURL)
-	assert.Equal(t, fixtureLinks[2].OriginalURL, links[2].OriginalURL)
+	assert.Equal(t, fixtureLinks[0].OriginalURL, response[0].OriginalURL)
+	assert.Equal(t, fixtureLinks[1].OriginalURL, response[1].OriginalURL)
+	assert.Equal(t, fixtureLinks[2].OriginalURL, response[2].OriginalURL)
 }
 
 func TestGetLinksWithPagination(t *testing.T) {
@@ -71,17 +68,15 @@ func TestGetLinksWithPagination(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "links 1-1/3", w.Header().Get("Content-Range"))
 
-	var response struct {
-		Links []LinkResponse `json:"links"`
-	}
+	var response []LinkResponse
+	
 	err = json.Unmarshal(w.Body.Bytes(), &response)
 
 	require.NoError(t, err)
 
-	links := response.Links
-	require.Len(t, links, 1)
+	require.Len(t, response, 1)
 
-	assert.Equal(t, fixtureLinks[1].OriginalURL, links[0].OriginalURL)
+	assert.Equal(t, fixtureLinks[1].OriginalURL, response[0].OriginalURL)
 }
 
 func TestGetLink(t *testing.T) {
@@ -104,15 +99,14 @@ func TestGetLink(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var response struct {
-		Link LinkResponse `json:"link"`
-	}
+	var response LinkResponse
+
 	err = json.Unmarshal(w.Body.Bytes(), &response)
 
 	require.NoError(t, err)
 
-	assert.Equal(t, link.ID, response.Link.ID)
-	assert.Equal(t, link.OriginalUrl, response.Link.OriginalURL)
+	assert.Equal(t, link.ID, response.ID)
+	assert.Equal(t, link.OriginalUrl, response.OriginalURL)
 }
 
 func TestCreateLink(t *testing.T) {
@@ -133,15 +127,14 @@ func TestCreateLink(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 
-	var response struct {
-		Link LinkResponse `json:"link"`
-	}
+	var response LinkResponse
+
 	err = json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
 
-	assert.Greater(t, response.Link.ID, int64(0))
-	assert.Equal(t, "https://telegram.com", response.Link.OriginalURL)
-	assert.Equal(t, "telegram", response.Link.ShortName)
+	assert.Greater(t, response.ID, int64(0))
+	assert.Equal(t, "https://telegram.com", response.OriginalURL)
+	assert.Equal(t, "telegram", response.ShortName)
 }
 
 func TestUpdateLink(t *testing.T) {
@@ -171,9 +164,8 @@ func TestUpdateLink(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var response struct {
-		Link LinkResponse `json:"link"`
-	}
+	var response LinkResponse
+
 	err = json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
 

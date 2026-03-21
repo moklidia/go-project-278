@@ -70,7 +70,7 @@ func GetLinks(queries *db.Queries) gin.HandlerFunc {
 			responseLinks = append(responseLinks, toLinkResponse(link))
 		}
 
-		c.JSON(http.StatusOK, gin.H{"links": responseLinks})
+		c.JSON(http.StatusOK, responseLinks)
 	}
 }
 
@@ -149,7 +149,7 @@ func GetLink(queries *db.Queries) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"link": toLinkResponse(link)})
+		c.JSON(http.StatusOK, toLinkResponse(link))
 	}
 }
 
@@ -198,7 +198,7 @@ func CreateLink(queries *db.Queries) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{"link": toLinkResponse(created)})
+		c.JSON(http.StatusCreated, toLinkResponse(created))
 	}
 }
 

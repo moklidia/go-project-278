@@ -6,6 +6,7 @@ import (
 
 	sentrygin "github.com/getsentry/sentry-go/gin"
   "github.com/gin-gonic/gin"
+	"github.com/gin-contrib/cors"
 	db "github.com/moklidia/go-project-278/internal/db"
 )
 
@@ -18,6 +19,11 @@ func SetupRouter(queries *db.Queries) *gin.Engine {
 			Repanic: true,
 			WaitForDelivery: true,
 		}))
+		router.Use(cors.New(cors.Config{
+			AllowOrigins: []string{"http://localhost:5173"},
+			AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowHeaders: []string{"Origin", "Content-Type", "Accept"},
+		}))	
 	}
 
 	router.GET("/ping", func(c *gin.Context) {

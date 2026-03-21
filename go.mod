@@ -5,6 +5,7 @@ go 1.25.4
 require (
 	github.com/getsentry/sentry-go v0.43.0
 	github.com/getsentry/sentry-go/gin v0.43.0
+	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-contrib/logger v1.2.6
 	github.com/gin-gonic/gin v1.12.0
 	github.com/jackc/pgx/v5 v5.8.0

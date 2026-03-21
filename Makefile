@@ -11,6 +11,9 @@ lint:
 run:
 	go run main.go
 
+start-frontend:
+	npx start-hexlet-url-shortener-frontend
+
 db-up:
 	docker run --name $(POSTGRES_CONTAINER) \
 		-e POSTGRES_PASSWORD=postgres \
@@ -26,7 +29,7 @@ test-db-up:
 	docker run --name $(TEST_POSTGRES_CONTAINER) \
 		-e POSTGRES_PASSWORD=postgres \
 		-e POSTGRES_DB=link_shortener_test \
-		-p 5433:5432 \
+		-p 5432:5432 \
 		-d $(POSTGRES_IMAGE)
 
 test-db-down:

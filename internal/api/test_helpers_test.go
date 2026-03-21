@@ -32,9 +32,10 @@ type LinkFixtures struct {
 func initTestDB(t *testing.T) *pgxpool.Pool {
 	dbURL := os.Getenv("TEST_DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgres://postgres:postgres@localhost:5433/link_shortener_test?sslmode=disable"
+		dbURL = "postgres://postgres:postgres@localhost:5432/link_shortener_test?sslmode=disable"
 	}
 
+	t.Logf("dbURL=%s", dbURL)
 	sqlDB, err := sql.Open("postgres", dbURL)
 	require.NoError(t, err)
 
