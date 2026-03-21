@@ -1,19 +1,19 @@
 package api
 
 import (
-  "net/http"
+	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
-	"errors"
 
+	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/gin-gonic/gin"
 
+	config "github.com/moklidia/go-project-278/internal/config"
 	db "github.com/moklidia/go-project-278/internal/db"
 	service "github.com/moklidia/go-project-278/internal/service"
-	config "github.com/moklidia/go-project-278/internal/config"
 )
 
 type LinkResponse struct {
@@ -30,18 +30,19 @@ type linkInput struct {
 
 func GetLinks(queries *db.Queries) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var length int
 		var links []db.Link
 		var err error
+		var requestedRange *rangeBounds
 		paginationRange := c.Query("range")
 
 		if paginationRange != "" {
-			pagination, err := getLimitAndOffsetFromQuery(paginationRange)
+			pagination, bounds, err := getLimitAndOffsetFromQuery(paginationRange)
 			if err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
-	
+			requestedRange = &bounds
+
 			links, err = queries.ListLinks(c.Request.Context(), pagination)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -53,11 +54,18 @@ func GetLinks(queries *db.Queries) gin.HandlerFunc {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
-			length = len(links)
 		}
 
+		total, err := queries.CountLinks(c.Request.Context())
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 
-		responseLinks := make([]LinkResponse, 0, length)
+		contentRange := buildContentRange(requestedRange, len(links), total)
+		c.Header("Content-Range", contentRange)
+
+		responseLinks := make([]LinkResponse, 0, len(links))
 		for _, link := range links {
 			responseLinks = append(responseLinks, toLinkResponse(link))
 		}
@@ -66,34 +74,58 @@ func GetLinks(queries *db.Queries) gin.HandlerFunc {
 	}
 }
 
-func getLimitAndOffsetFromQuery(rangeParam string) (db.ListLinksParams, error) {
+type rangeBounds struct {
+	start int
+	end   int
+}
+
+func getLimitAndOffsetFromQuery(rangeParam string) (db.ListLinksParams, rangeBounds, error) {
 	pagination := db.ListLinksParams{}
+	bounds := rangeBounds{}
 
 	rangeParam = strings.TrimPrefix(rangeParam, "[")
 	rangeParam = strings.TrimSuffix(rangeParam, "]")
 
 	parts := strings.Split(rangeParam, ",")
 	if len(parts) != 2 {
-		return pagination, errors.New("incorrect range")
+		return pagination, bounds, errors.New("incorrect range")
 	}
 
 	start, err := strconv.Atoi(strings.TrimSpace(parts[0]))
-	if err != nil{
-		return pagination, errors.New("incorrect range")
+	if err != nil {
+		return pagination, bounds, errors.New("incorrect range")
 	}
 	end, err := strconv.Atoi(strings.TrimSpace(parts[1]))
 	if err != nil {
-		return pagination, errors.New("incorrect range")
+		return pagination, bounds, errors.New("incorrect range")
 	}
 
 	if start < 0 || end < start {
-		return pagination, errors.New("incorrect range")
+		return pagination, bounds, errors.New("incorrect range")
 	}
+
+	bounds = rangeBounds{start: start, end: end}
 
 	return db.ListLinksParams{
 		Limit:  int32(end - start),
 		Offset: int32(start),
-	}, nil
+	}, bounds, nil
+}
+
+func buildContentRange(requestedRange *rangeBounds, count int, total int64) string {
+	if requestedRange == nil {
+		if count == 0 {
+			return "links */0"
+		}
+		return fmt.Sprintf("links 0-%d/%d", count-1, total)
+	}
+
+	if count == 0 {
+		return fmt.Sprintf("links */%d", total)
+	}
+
+	end := requestedRange.start + count - 1
+	return fmt.Sprintf("links %d-%d/%d", requestedRange.start, end, total)
 }
 
 func GetLink(queries *db.Queries) gin.HandlerFunc {
@@ -211,13 +243,13 @@ func UpdateLink(queries *db.Queries) gin.HandlerFunc {
 
 		if originalURL == "" {
 			originalURL = current.OriginalUrl
-	  }
+		}
 
 		rowsAffected, err := queries.UpdateLink(c.Request.Context(), db.UpdateLinkParams{
-			ID: id,
+			ID:          id,
 			OriginalUrl: originalURL,
-			ShortName: shortName,
-			ShortUrl: shortURL,
+			ShortName:   shortName,
+			ShortUrl:    shortURL,
 		})
 		if err != nil {
 			var pgErr *pgconn.PgError

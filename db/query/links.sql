@@ -1,7 +1,9 @@
 -- name: ListLinks :many
 SELECT * FROM links ORDER BY id LIMIT $1 OFFSET $2;
 -- name: ListAllLinks :many
-SELECT * FROM links;
+SELECT * FROM links ORDER BY id;
+-- name: CountLinks :one
+SELECT COUNT(*) FROM links;
 -- name: ShortNameExists :one
 SELECT EXISTS (
   SELECT 1

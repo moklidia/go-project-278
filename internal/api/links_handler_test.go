@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"testing"
 	"os"
+	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/gin-gonic/gin"
 
 	db "github.com/moklidia/go-project-278/internal/db"
 )
@@ -31,7 +31,7 @@ func TestGetLinks(t *testing.T) {
 	require.NoError(t, err)
 	router := SetupRouter(queries)
 
-	req,err := http.NewRequest("GET", "/api/links", nil)
+	req, err := http.NewRequest("GET", "/api/links", nil)
 	require.NoError(t, err)
 	w := httptest.NewRecorder()
 
@@ -62,13 +62,14 @@ func TestGetLinksWithPagination(t *testing.T) {
 	require.NoError(t, err)
 	router := SetupRouter(queries)
 
-	req,err := http.NewRequest("GET", "/api/links?range=[1,2]", nil)
+	req, err := http.NewRequest("GET", "/api/links?range=[1,2]", nil)
 	require.NoError(t, err)
 	w := httptest.NewRecorder()
 
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "links 1-1/3", w.Header().Get("Content-Range"))
 
 	var response struct {
 		Links []LinkResponse `json:"links"`
@@ -95,7 +96,7 @@ func TestGetLink(t *testing.T) {
 	require.NoError(t, err)
 	link := links[0]
 
-	req,err := http.NewRequest("GET", fmt.Sprintf("/api/links/%d", link.ID), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("/api/links/%d", link.ID), nil)
 	require.NoError(t, err)
 	w := httptest.NewRecorder()
 
@@ -123,7 +124,7 @@ func TestCreateLink(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	req,err := http.NewRequest("POST", "/api/links", bytes.NewReader(body))
+	req, err := http.NewRequest("POST", "/api/links", bytes.NewReader(body))
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -161,7 +162,7 @@ func TestUpdateLink(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	req,err := http.NewRequest("PUT", fmt.Sprintf("/api/links/%d", link.ID), bytes.NewReader(body))
+	req, err := http.NewRequest("PUT", fmt.Sprintf("/api/links/%d", link.ID), bytes.NewReader(body))
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -196,7 +197,7 @@ func TestDeleteLink(t *testing.T) {
 	require.NoError(t, err)
 	link := links[0]
 
-	req,err := http.NewRequest("DELETE", fmt.Sprintf("/api/links/%d", link.ID), nil)
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("/api/links/%d", link.ID), nil)
 	require.NoError(t, err)
 	w := httptest.NewRecorder()
 
@@ -257,4 +258,3 @@ func setupTx(t *testing.T) (pgx.Tx, *db.Queries) {
 
 	return tx, q
 }
-

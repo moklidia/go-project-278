@@ -9,6 +9,17 @@ import (
 	"context"
 )
 
+const countLinks = `-- name: CountLinks :one
+SELECT COUNT(*) FROM links
+`
+
+func (q *Queries) CountLinks(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countLinks)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createLink = `-- name: CreateLink :one
 INSERT INTO links (original_url, short_name, short_url) VALUES ($1, $2, $3) RETURNING id, original_url, short_name, short_url, created_at
 `
@@ -62,7 +73,7 @@ func (q *Queries) GetLink(ctx context.Context, id int64) (Link, error) {
 }
 
 const listAllLinks = `-- name: ListAllLinks :many
-SELECT id, original_url, short_name, short_url, created_at FROM links
+SELECT id, original_url, short_name, short_url, created_at FROM links ORDER BY id
 `
 
 func (q *Queries) ListAllLinks(ctx context.Context) ([]Link, error) {
