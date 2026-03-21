@@ -61,12 +61,47 @@ func (q *Queries) GetLink(ctx context.Context, id int64) (Link, error) {
 	return i, err
 }
 
-const listLinks = `-- name: ListLinks :many
+const listAllLinks = `-- name: ListAllLinks :many
 SELECT id, original_url, short_name, short_url, created_at FROM links
 `
 
-func (q *Queries) ListLinks(ctx context.Context) ([]Link, error) {
-	rows, err := q.db.Query(ctx, listLinks)
+func (q *Queries) ListAllLinks(ctx context.Context) ([]Link, error) {
+	rows, err := q.db.Query(ctx, listAllLinks)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Link
+	for rows.Next() {
+		var i Link
+		if err := rows.Scan(
+			&i.ID,
+			&i.OriginalUrl,
+			&i.ShortName,
+			&i.ShortUrl,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLinks = `-- name: ListLinks :many
+SELECT id, original_url, short_name, short_url, created_at FROM links ORDER BY id LIMIT $1 OFFSET $2
+`
+
+type ListLinksParams struct {
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListLinks(ctx context.Context, arg ListLinksParams) ([]Link, error) {
+	rows, err := q.db.Query(ctx, listLinks, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

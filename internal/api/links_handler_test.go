@@ -54,6 +54,35 @@ func TestGetLinks(t *testing.T) {
 	assert.Equal(t, fixtureLinks[2].OriginalURL, links[2].OriginalURL)
 }
 
+func TestGetLinksWithPagination(t *testing.T) {
+	_, queries := setupTx(t)
+	fixtureLinks, err := LoadLinkFixtures(t)
+	require.NoError(t, err)
+	err = SeedLinks(context.Background(), queries, fixtureLinks)
+	require.NoError(t, err)
+	router := SetupRouter(queries)
+
+	req,err := http.NewRequest("GET", "/api/links?range=[1,2]", nil)
+	require.NoError(t, err)
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response struct {
+		Links []LinkResponse `json:"links"`
+	}
+	err = json.Unmarshal(w.Body.Bytes(), &response)
+
+	require.NoError(t, err)
+
+	links := response.Links
+	require.Len(t, links, 1)
+
+	assert.Equal(t, fixtureLinks[1].OriginalURL, links[0].OriginalURL)
+}
+
 func TestGetLink(t *testing.T) {
 	_, queries := setupTx(t)
 	fixtureLinks, err := LoadLinkFixtures(t)
@@ -62,7 +91,7 @@ func TestGetLink(t *testing.T) {
 	require.NoError(t, err)
 	router := SetupRouter(queries)
 
-	links, err := queries.ListLinks(context.Background())
+	links, err := queries.ListAllLinks(context.Background())
 	require.NoError(t, err)
 	link := links[0]
 
@@ -122,7 +151,7 @@ func TestUpdateLink(t *testing.T) {
 	require.NoError(t, err)
 	router := SetupRouter(queries)
 
-	links, err := queries.ListLinks(context.Background())
+	links, err := queries.ListAllLinks(context.Background())
 	require.NoError(t, err)
 	link := links[0]
 
@@ -163,7 +192,7 @@ func TestDeleteLink(t *testing.T) {
 	require.NoError(t, err)
 	router := SetupRouter(queries)
 
-	links, err := queries.ListLinks(context.Background())
+	links, err := queries.ListAllLinks(context.Background())
 	require.NoError(t, err)
 	link := links[0]
 

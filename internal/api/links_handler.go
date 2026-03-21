@@ -4,6 +4,7 @@ import (
   "net/http"
 	"fmt"
 	"strconv"
+	"strings"
 	"errors"
 
 	"github.com/jackc/pgx/v5"
@@ -29,19 +30,70 @@ type linkInput struct {
 
 func GetLinks(queries *db.Queries) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		links, err := queries.ListLinks(c.Request.Context())
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
+		var length int
+		var links []db.Link
+		var err error
+		paginationRange := c.Query("range")
+
+		if paginationRange != "" {
+			pagination, err := getLimitAndOffsetFromQuery(paginationRange)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+	
+			links, err = queries.ListLinks(c.Request.Context(), pagination)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+		} else {
+			links, err = queries.ListAllLinks(c.Request.Context())
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			length = len(links)
 		}
 
-		responseLinks := make([]LinkResponse, 0, len(links))
+
+		responseLinks := make([]LinkResponse, 0, length)
 		for _, link := range links {
 			responseLinks = append(responseLinks, toLinkResponse(link))
 		}
 
 		c.JSON(http.StatusOK, gin.H{"links": responseLinks})
 	}
+}
+
+func getLimitAndOffsetFromQuery(rangeParam string) (db.ListLinksParams, error) {
+	pagination := db.ListLinksParams{}
+
+	rangeParam = strings.TrimPrefix(rangeParam, "[")
+	rangeParam = strings.TrimSuffix(rangeParam, "]")
+
+	parts := strings.Split(rangeParam, ",")
+	if len(parts) != 2 {
+		return pagination, errors.New("incorrect range")
+	}
+
+	start, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+	if err != nil{
+		return pagination, errors.New("incorrect range")
+	}
+	end, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if err != nil {
+		return pagination, errors.New("incorrect range")
+	}
+
+	if start < 0 || end < start {
+		return pagination, errors.New("incorrect range")
+	}
+
+	return db.ListLinksParams{
+		Limit:  int32(end - start),
+		Offset: int32(start),
+	}, nil
 }
 
 func GetLink(queries *db.Queries) gin.HandlerFunc {
