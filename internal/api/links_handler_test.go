@@ -7,21 +7,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
-	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	db "github.com/moklidia/go-project-278/internal/db"
 )
-
-func TestMain(m *testing.M) {
-	gin.SetMode(gin.TestMode)
-	os.Exit(m.Run())
-}
 
 func TestGetLinks(t *testing.T) {
 	_, queries := setupTx(t)
@@ -233,20 +224,4 @@ func TestDeleteLinkNotFound(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
-}
-
-func setupTx(t *testing.T) (pgx.Tx, *db.Queries) {
-	conn := initTestDB(t)
-
-	tx, err := conn.Begin(context.Background())
-	require.NoError(t, err)
-
-	q := db.New(tx)
-
-	t.Cleanup(func() {
-		err := tx.Rollback(context.Background())
-		require.NoError(t, err)
-	})
-
-	return tx, q
 }

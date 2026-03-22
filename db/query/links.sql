@@ -2,6 +2,8 @@
 SELECT * FROM links ORDER BY id LIMIT $1 OFFSET $2;
 -- name: ListAllLinks :many
 SELECT * FROM links ORDER BY id;
+-- name: LinkByShortName :one
+SELECT * FROM links WHERE short_name = $1;
 -- name: CountLinks :one
 SELECT COUNT(*) FROM links;
 -- name: ShortNameExists :one
@@ -18,3 +20,7 @@ INSERT INTO links (original_url, short_name, short_url) VALUES ($1, $2, $3) RETU
 UPDATE links SET original_url = $2, short_name = $3, short_url = $4 WHERE id = $1 RETURNING *;
 -- name: DeleteLink :execrows
 DELETE FROM links WHERE id = $1;
+-- name: CreateLinkVisit :one
+INSERT INTO link_visits (link_id, ip, user_agent, status, referer) VALUES ($1, $2, $3, $4, $5) RETURNING *;
+-- name: GetLastLinkVisitByLinkID :one
+SELECT * FROM link_visits WHERE link_id = $1 ORDER BY created_at DESC LIMIT 1;

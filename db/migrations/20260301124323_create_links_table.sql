@@ -8,5 +8,5 @@ CREATE TABLE links (
 );
 
 -- +goose Down
-SELECT 'down SQL query';
+DROP TABLE links;
 

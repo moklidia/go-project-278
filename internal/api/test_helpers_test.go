@@ -3,18 +3,21 @@ package api
 import (
 	"context"
 	"database/sql"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
-	
-  "gopkg.in/yaml.v3"
+
+	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/lib/pq"
+	"gopkg.in/yaml.v3"
 	"github.com/pressly/goose/v3"
 	"github.com/stretchr/testify/require"
-	db "github.com/moklidia/go-project-278/internal/db"
 
+	db "github.com/moklidia/go-project-278/internal/db"
 )
 
 type LinkFixture struct {
@@ -28,24 +31,47 @@ type LinkFixtures struct {
 	Links []LinkFixture `yaml:"links"`
 }
 
+var testPool *pgxpool.Pool
 
-func initTestDB(t *testing.T) *pgxpool.Pool {
+func TestMain(m *testing.M) {
+	gin.SetMode(gin.TestMode)
+
 	dbURL := os.Getenv("TEST_DATABASE_URL")
 	if dbURL == "" {
 		dbURL = "postgres://postgres:postgres@localhost:5432/link_shortener_test?sslmode=disable"
 	}
 
-	t.Logf("dbURL=%s", dbURL)
 	sqlDB, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := goose.Up(sqlDB, migrationsPath()); err != nil {
+		log.Fatal(err)
+	}
+
+	testPool, err = pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	code := m.Run()
+	testPool.Close()
+	os.Exit(code)
+}
+
+func setupTx(t *testing.T) (pgx.Tx, *db.Queries) {
+	tx, err := testPool.Begin(context.Background())
 	require.NoError(t, err)
 
-	err = goose.Up(sqlDB, migrationsPath(t))
-	require.NoError(t, err)
+	q := db.New(tx)
 
-	pool, err := pgxpool.New(context.Background(), dbURL)
-	require.NoError(t, err)
+	t.Cleanup(func() {
+		err := tx.Rollback(context.Background())
+		require.NoError(t, err)
+	})
 
-	return pool
+	return tx, q
 }
 
 func LoadLinkFixtures(t *testing.T) ([]LinkFixture, error) {
@@ -81,14 +107,6 @@ func SeedLinks(ctx context.Context, q *db.Queries, links []LinkFixture) error {
 	return nil
 }
 
-func migrationsPath(t *testing.T) string {
-	_, filename, _, ok := runtime.Caller(0)
-	require.True(t, ok)
-
-	dir := filepath.Dir(filename)
-	return filepath.Clean(filepath.Join(dir, "..", "..", "db", "migrations"))
-}
-
 func fixturesPath(t *testing.T) string {
 	_, filename, _, ok := runtime.Caller(0)
 	require.True(t, ok)
@@ -97,3 +115,12 @@ func fixturesPath(t *testing.T) string {
 	return filepath.Clean(filepath.Join(dir, "..", "..", "testdata"))
 }
 
+func migrationsPath() string {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		log.Fatal("failed to resolve migrations path")
+	}
+
+	dir := filepath.Dir(filename)
+	return filepath.Clean(filepath.Join(dir, "..", "..", "db", "migrations"))
+}

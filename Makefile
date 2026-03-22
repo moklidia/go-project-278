@@ -1,6 +1,7 @@
 POSTGRES_CONTAINER = go-project-278-postgres
 TEST_POSTGRES_CONTAINER = go-project-278-postgres-test
 POSTGRES_IMAGE = postgres:16
+DATABASE_URL ?= postgres://postgres:postgres@localhost:5432/link_shortener?sslmode=disable
 
 test:
 	go test --race ./...
@@ -13,6 +14,15 @@ run:
 
 start-frontend:
 	npx start-hexlet-url-shortener-frontend
+
+migration-create:
+	goose -dir db/migrations create $(name) sql
+
+migration-up:
+	goose -dir db/migrations postgres "$(DATABASE_URL)" up
+
+sqlc-generate:
+	sqlc generate
 
 db-up:
 	docker run --name $(POSTGRES_CONTAINER) \
