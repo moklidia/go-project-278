@@ -31,6 +31,20 @@ type LinkFixtures struct {
 	Links []LinkFixture `yaml:"links"`
 }
 
+type LinkVisitFixture struct {
+	ID        int64  `yaml:"id"`
+	ShortName string `yaml:"short_name"`
+	CreatedAt string `yaml:"created_at"`
+	IP        string `yaml:"ip"`
+	UserAgent string `yaml:"user_agent"`
+	Referer   string `yaml:"referer"`
+	Status    int32  `yaml:"status"`
+}
+
+type LinkVisitFixtures struct {
+	LinkVisits []LinkVisitFixture `yaml:"link_visits"`
+}
+
 var testPool *pgxpool.Pool
 
 func TestMain(m *testing.M) {
@@ -98,6 +112,46 @@ func SeedLinks(ctx context.Context, q *db.Queries, links []LinkFixture) error {
 			OriginalUrl: l.OriginalURL,
 			ShortName:   l.ShortName,
 			ShortUrl:    l.ShortURL,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func LoadLinkVisitFixtures(t *testing.T) ([]LinkVisitFixture, error) {
+	fixturesDir := fixturesPath(t)
+	path := filepath.Clean(filepath.Join(fixturesDir, "link_visits.yml"))
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var fixtures LinkVisitFixtures
+
+	err = yaml.Unmarshal(data, &fixtures)
+	if err != nil {
+		return nil, err
+	}
+
+	return fixtures.LinkVisits, nil
+}
+
+func SeedLinkVisits(ctx context.Context, q *db.Queries, linkVisits []LinkVisitFixture) error {
+	for _, visit := range linkVisits {
+		link, err := q.LinkByShortName(ctx, visit.ShortName)
+		if err != nil {
+			return err
+		}
+
+		_, err = q.CreateLinkVisit(ctx, db.CreateLinkVisitParams{
+			LinkID:    link.ID,
+			Ip:        visit.IP,
+			UserAgent: visit.UserAgent,
+			Referer:   visit.Referer,
+			Status:    visit.Status,
 		})
 		if err != nil {
 			return err

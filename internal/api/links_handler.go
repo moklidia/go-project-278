@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
@@ -28,11 +27,6 @@ type linkInput struct {
 	ShortName   string `json:"short_name"`
 }
 
-type rangeBounds struct {
-	start int
-	end   int
-}
-
 func GetLinks(queries *db.Queries) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var links []db.Link
@@ -48,7 +42,10 @@ func GetLinks(queries *db.Queries) gin.HandlerFunc {
 			}
 			requestedRange = &bounds
 
-			links, err = queries.ListLinks(c.Request.Context(), pagination)
+			links, err = queries.ListLinks(c.Request.Context(), db.ListLinksParams{
+				Limit:  pagination.Limit,
+				Offset: pagination.Offset,
+			})
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
@@ -67,7 +64,7 @@ func GetLinks(queries *db.Queries) gin.HandlerFunc {
 			return
 		}
 
-		contentRange := buildContentRange(requestedRange, len(links), total)
+		contentRange := buildContentRange("links", requestedRange, len(links), total)
 		c.Header("Content-Range", contentRange)
 
 		responseLinks := make([]LinkResponse, 0, len(links))
@@ -246,55 +243,6 @@ func DeleteLink(queries *db.Queries) gin.HandlerFunc {
 		}
 		c.JSON(http.StatusNoContent, gin.H{})
 	}
-}
-
-func getLimitAndOffsetFromQuery(rangeParam string) (db.ListLinksParams, rangeBounds, error) {
-	pagination := db.ListLinksParams{}
-	bounds := rangeBounds{}
-
-	rangeParam = strings.TrimPrefix(rangeParam, "[")
-	rangeParam = strings.TrimSuffix(rangeParam, "]")
-
-	parts := strings.Split(rangeParam, ",")
-	if len(parts) != 2 {
-		return pagination, bounds, errors.New("incorrect range")
-	}
-
-	start, err := strconv.Atoi(strings.TrimSpace(parts[0]))
-	if err != nil {
-		return pagination, bounds, errors.New("incorrect range")
-	}
-	end, err := strconv.Atoi(strings.TrimSpace(parts[1]))
-	if err != nil {
-		return pagination, bounds, errors.New("incorrect range")
-	}
-
-	if start < 0 || end < start {
-		return pagination, bounds, errors.New("incorrect range")
-	}
-
-	bounds = rangeBounds{start: start, end: end}
-
-	return db.ListLinksParams{
-		Limit:  int32(end - start),
-		Offset: int32(start),
-	}, bounds, nil
-}
-
-func buildContentRange(requestedRange *rangeBounds, count int, total int64) string {
-	if requestedRange == nil {
-		if count == 0 {
-			return "links */0"
-		}
-		return fmt.Sprintf("links 0-%d/%d", count-1, total)
-	}
-
-	if count == 0 {
-		return fmt.Sprintf("links */%d", total)
-	}
-
-	end := requestedRange.start + count - 1
-	return fmt.Sprintf("links %d-%d/%d", requestedRange.start, end, total)
 }
 
 func toLinkResponse(l db.Link) LinkResponse {

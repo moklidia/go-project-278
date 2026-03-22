@@ -40,6 +40,7 @@ func SetupRouter(queries *db.Queries) *gin.Engine {
 	router.PUT("/api/links/:id", UpdateLink(queries))
 	router.DELETE("/api/links/:id", DeleteLink(queries))
 	router.GET("/r/:code", RedirectToLink(queries))
+	router.GET("/api/link_visits", GetStatistics(queries))
 
 	return router
 }

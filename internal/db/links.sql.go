@@ -43,39 +43,6 @@ func (q *Queries) CreateLink(ctx context.Context, arg CreateLinkParams) (Link, e
 	return i, err
 }
 
-const createLinkVisit = `-- name: CreateLinkVisit :one
-INSERT INTO link_visits (link_id, ip, user_agent, status, referer) VALUES ($1, $2, $3, $4, $5) RETURNING id, link_id, created_at, ip, user_agent, referer, status
-`
-
-type CreateLinkVisitParams struct {
-	LinkID    int64
-	Ip        string
-	UserAgent string
-	Status    int32
-	Referer   string
-}
-
-func (q *Queries) CreateLinkVisit(ctx context.Context, arg CreateLinkVisitParams) (LinkVisit, error) {
-	row := q.db.QueryRow(ctx, createLinkVisit,
-		arg.LinkID,
-		arg.Ip,
-		arg.UserAgent,
-		arg.Status,
-		arg.Referer,
-	)
-	var i LinkVisit
-	err := row.Scan(
-		&i.ID,
-		&i.LinkID,
-		&i.CreatedAt,
-		&i.Ip,
-		&i.UserAgent,
-		&i.Referer,
-		&i.Status,
-	)
-	return i, err
-}
-
 const deleteLink = `-- name: DeleteLink :execrows
 DELETE FROM links WHERE id = $1
 `
@@ -86,25 +53,6 @@ func (q *Queries) DeleteLink(ctx context.Context, id int64) (int64, error) {
 		return 0, err
 	}
 	return result.RowsAffected(), nil
-}
-
-const getLastLinkVisitByLinkID = `-- name: GetLastLinkVisitByLinkID :one
-SELECT id, link_id, created_at, ip, user_agent, referer, status FROM link_visits WHERE link_id = $1 ORDER BY created_at DESC LIMIT 1
-`
-
-func (q *Queries) GetLastLinkVisitByLinkID(ctx context.Context, linkID int64) (LinkVisit, error) {
-	row := q.db.QueryRow(ctx, getLastLinkVisitByLinkID, linkID)
-	var i LinkVisit
-	err := row.Scan(
-		&i.ID,
-		&i.LinkID,
-		&i.CreatedAt,
-		&i.Ip,
-		&i.UserAgent,
-		&i.Referer,
-		&i.Status,
-	)
-	return i, err
 }
 
 const getLink = `-- name: GetLink :one
