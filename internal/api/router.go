@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	sentrygin "github.com/getsentry/sentry-go/gin"
-  "github.com/gin-gonic/gin"
 	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 	db "github.com/moklidia/go-project-278/internal/db"
 )
 
@@ -16,23 +16,23 @@ func SetupRouter(queries *db.Queries) *gin.Engine {
 	if gin.Mode() != gin.TestMode {
 		router.Use(logger.SetLogger())
 		router.Use(sentrygin.New(sentrygin.Options{
-			Repanic: true,
+			Repanic:         true,
 			WaitForDelivery: true,
 		}))
 		router.Use(cors.New(cors.Config{
 			AllowOrigins: []string{"http://localhost:5173"},
 			AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 			AllowHeaders: []string{"Origin", "Content-Type", "Accept"},
-		}))	
+		}))
 	}
 
 	router.TrustedPlatform = gin.PlatformCloudflare
 
 	router.GET("/ping", func(c *gin.Context) {
-    c.JSON(http.StatusOK, gin.H{
-      "message": "pong",
-    })
-  })
+		c.JSON(http.StatusOK, gin.H{
+			"message": "pong",
+		})
+	})
 
 	router.GET("/api/links", GetLinks(queries))
 	router.GET("/api/links/:id", GetLink(queries))

@@ -4,9 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
@@ -22,9 +26,57 @@ type LinkResponse struct {
 	ShortURL    string `json:"short_url"`
 }
 
-type linkInput struct {
-	OriginalURL string `json:"original_url"`
-	ShortName   string `json:"short_name"`
+type createLinkPayload struct {
+	OriginalURL string `json:"original_url" binding:"required,url"`
+	ShortName   string `json:"short_name" binding:"omitempty,min=3,max=32"`
+}
+
+type updateLinkPayload struct {
+	OriginalURL string `json:"original_url" binding:"omitempty,url"`
+	ShortName   string `json:"short_name" binding:"omitempty,min=3,max=32"`
+}
+
+type validationErrorResponse struct {
+	Errors map[string]string `json:"errors"`
+}
+
+func init() {
+	if validatorEngine, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		validatorEngine.RegisterTagNameFunc(func(field reflect.StructField) string {
+			name := strings.Split(field.Tag.Get("json"), ",")[0]
+			if name == "" || name == "-" {
+				return field.Name
+			}
+			return name
+		})
+	}
+}
+
+func respondValidationErrors(c *gin.Context, err error) {
+	var validationErrors validator.ValidationErrors
+	if errors.As(err, &validationErrors) {
+		messages := make(map[string]string, len(validationErrors))
+		for _, validationErr := range validationErrors {
+			messages[validationErr.Field()] = validationErr.Error()
+		}
+		c.JSON(http.StatusUnprocessableEntity, validationErrorResponse{Errors: messages})
+		return
+	}
+
+	c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+}
+
+func respondShortNameInUse(c *gin.Context) {
+	c.JSON(http.StatusUnprocessableEntity, validationErrorResponse{
+		Errors: map[string]string{
+			"short_name": "short name already in use",
+		},
+	})
+}
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
 func GetLinks(queries *db.Queries) gin.HandlerFunc {
@@ -85,7 +137,7 @@ func GetLink(queries *db.Queries) gin.HandlerFunc {
 		}
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 			return
 		}
 		link, err := queries.GetLink(c.Request.Context(), id)
@@ -103,15 +155,9 @@ func GetLink(queries *db.Queries) gin.HandlerFunc {
 
 func CreateLink(queries *db.Queries) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var input linkInput
+		var input createLinkPayload
 		if err := c.ShouldBindJSON(&input); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
-			return
-		}
-
-		originalURL := input.OriginalURL
-		if originalURL == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "original_url is required"})
+			respondValidationErrors(c, err)
 			return
 		}
 
@@ -128,17 +174,13 @@ func CreateLink(queries *db.Queries) gin.HandlerFunc {
 		appURL := config.GetEnv("APP_URL", "https://short.io")
 		shortURL := fmt.Sprintf("%s/%s", appURL, shortName)
 		created, err := queries.CreateLink(c.Request.Context(), db.CreateLinkParams{
-			OriginalUrl: originalURL,
+			OriginalUrl: input.OriginalURL,
 			ShortName:   shortName,
 			ShortUrl:    shortURL,
 		})
 		if err != nil {
-			var pgErr *pgconn.PgError
-			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				c.JSON(http.StatusConflict, gin.H{
-					"error": "short name already exists",
-					"code":  "short_name_conflict",
-				})
+			if isUniqueViolation(err) {
+				respondShortNameInUse(c)
 				return
 			}
 
@@ -163,9 +205,9 @@ func UpdateLink(queries *db.Queries) gin.HandlerFunc {
 			return
 		}
 
-		var input linkInput
+		var input updateLinkPayload
 		if err := c.ShouldBindJSON(&input); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+			respondValidationErrors(c, err)
 			return
 		}
 
@@ -200,12 +242,8 @@ func UpdateLink(queries *db.Queries) gin.HandlerFunc {
 			ShortUrl:    shortURL,
 		})
 		if err != nil {
-			var pgErr *pgconn.PgError
-			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				c.JSON(http.StatusConflict, gin.H{
-					"error": "short name already exists",
-					"code":  "short_name_conflict",
-				})
+			if isUniqueViolation(err) {
+				respondShortNameInUse(c)
 				return
 			}
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
