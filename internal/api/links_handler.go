@@ -79,6 +79,11 @@ func isUniqueViolation(err error) bool {
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
+func buildShortURL(shortName string) string {
+	appURL := config.GetEnv("APP_URL", "https://short.io")
+	return fmt.Sprintf("%s/r/%s", appURL, shortName)
+}
+
 func GetLinks(queries *db.Queries) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var links []db.Link
@@ -171,8 +176,7 @@ func CreateLink(queries *db.Queries) gin.HandlerFunc {
 			shortName = randomString
 		}
 
-		appURL := config.GetEnv("APP_URL", "https://short.io")
-		shortURL := fmt.Sprintf("%s/%s", appURL, shortName)
+		shortURL := buildShortURL(shortName)
 		created, err := queries.CreateLink(c.Request.Context(), db.CreateLinkParams{
 			OriginalUrl: input.OriginalURL,
 			ShortName:   shortName,
@@ -228,8 +232,7 @@ func UpdateLink(queries *db.Queries) gin.HandlerFunc {
 			shortName = current.ShortName
 		}
 
-		appURL := config.GetEnv("APP_URL", "https://short.io")
-		shortURL := fmt.Sprintf("%s/%s", appURL, shortName)
+		shortURL := buildShortURL(shortName)
 
 		if originalURL == "" {
 			originalURL = current.OriginalUrl
@@ -254,7 +257,13 @@ func UpdateLink(queries *db.Queries) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{})
+		updated, err := queries.GetLink(c.Request.Context(), id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, toLinkResponse(updated))
 	}
 }
 

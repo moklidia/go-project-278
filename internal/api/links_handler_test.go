@@ -130,6 +130,7 @@ func TestCreateLink(t *testing.T) {
 	assert.Greater(t, response.ID, int64(0))
 	assert.Equal(t, "https://telegram.com", response.OriginalURL)
 	assert.Equal(t, "telegram", response.ShortName)
+	assert.Equal(t, "https://short.io/r/telegram", response.ShortURL)
 }
 
 func TestCreateLinkGeneratesShortName(t *testing.T) {
@@ -257,7 +258,11 @@ func TestUpdateLink(t *testing.T) {
 
 	assert.Equal(t, "https://telegram.com", updated.OriginalUrl)
 	assert.Equal(t, "telegram", updated.ShortName)
-	assert.Equal(t, "https://short.io/telegram", updated.ShortUrl)
+	assert.Equal(t, "https://short.io/r/telegram", updated.ShortUrl)
+	assert.Equal(t, link.ID, response.ID)
+	assert.Equal(t, "https://telegram.com", response.OriginalURL)
+	assert.Equal(t, "telegram", response.ShortName)
+	assert.Equal(t, "https://short.io/r/telegram", response.ShortURL)
 }
 
 func TestUpdateLinkPartialPayload(t *testing.T) {
