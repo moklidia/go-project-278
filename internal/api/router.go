@@ -29,9 +29,7 @@ func SetupRouter(queries *db.Queries) *gin.Engine {
 	router.TrustedPlatform = gin.PlatformCloudflare
 
 	router.GET("/ping", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "pong",
-		})
+		c.JSON(http.StatusOK, gin.H{"pong"})
 	})
 
 	router.GET("/api/links", GetLinks(queries))
